@@ -1,5 +1,4 @@
-node_modules
-dist
-dev-data
-public
+node_modules/*
+dev-data/*
+public/*
 config.env
