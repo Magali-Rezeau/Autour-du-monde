@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const slugify = require('slugify');
 
 const schema = mongoose.Schema;
 
@@ -9,6 +10,9 @@ const tourSchema = schema(
       required: [true, 'A tour must have a price'],
       unique: true,
       trim: true,
+    },
+    slug: {
+      type: String,
     },
     price: {
       type: Number,
@@ -61,6 +65,9 @@ const tourSchema = schema(
     startDates: {
       type: [Date],
     },
+    secretTour: {
+      type: Boolean,
+    },
   },
   {
     toJSON: { virtuals: true },
@@ -71,6 +78,22 @@ const tourSchema = schema(
 // Calculate duration in weeks
 tourSchema.virtual('durationWeeks').get(function () {
   return this.duration / 7;
+});
+
+// Creating a slug before saving and creating a tour (document middleware)
+tourSchema.pre('save', function (next) {
+  this.slug = slugify(this.name, { lower: true });
+  next();
+});
+// Search for tours that are not secret (query middleware)
+tourSchema.pre(/^find/, function (next) {
+  this.find({ secretTour: { $ne: true } });
+  next();
+});
+// Filter secret tours - for getMonthlyPlan exclude secret tours (aggregation middleware)
+tourSchema.pre('aggregate', function (next) {
+  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+  next();
 });
 
 const Tour = mongoose.model('Tour', tourSchema);
