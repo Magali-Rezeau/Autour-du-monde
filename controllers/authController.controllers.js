@@ -1,15 +1,15 @@
-const util = require('util');
+const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const User = require('../models/userModel.models');
 const catchAsync = require('../utils/catchAsync.utils');
 const AppError = require('../utils/AppError.utils');
+const sendEmail = require('../utils/email.utils');
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
-
-exports.signup = catchAsync(async (req, res) => {
+exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
@@ -55,7 +55,7 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
-    token = req.headers.authorization.split('')[1];
+    token = req.headers.authorization.split(' ')[1];
   }
   if (!token) {
     return next(
@@ -63,26 +63,67 @@ exports.protectRoute = catchAsync(async (req, res, next) => {
     );
   }
   // Verification token
-  const decoded = await util.promisify(jwt.verify)(
-    token,
-    process.env.JWT_SECRET
-  );
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
   // Check if user still exists
   const currentUser = await User.findById(decoded.id);
   if (!currentUser) {
-    return new AppError(
-      'The user belonging to this token does not longer exist',
-      401
+    return next(
+      new AppError(
+        'The user belonging to this token does not longer exist',
+        401
+      )
     );
   }
   // Check if user change password after the token was issues
-  if (currentUser.changePasswordAfter(decoded.iat)) {
-    return new AppError(
-      'User recently changed password! Please log in again',
-      401
+  if (currentUser.changedPasswordAfter(decoded.iat)) {
+    return next(
+      new AppError('User recently changed password! Please log in again', 401)
     );
   }
   // Grant access to protected route
   req.user = currentUser;
   next();
 });
+exports.restrictTo = (...roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return next(
+      new AppError('You do not have permission to perform this action', 403)
+    );
+  }
+  next();
+};
+exports.forgotPassword = catchAsync(async (req, res, next) => {
+  // Get user based on posted email
+  const user = await User.findOne(req.body.email);
+  if (!user) {
+    return next(new AppError('There is no user with email address', 404));
+  }
+  // Generate the random reset token
+  const resetToken = user.createPasswordResetToken();
+  await user.save({ validateBeforeSave: false });
+
+  // Sensd it to user's email
+  const resetURL = `${req.protocol}://${req.get(
+    'host'
+  )}/api/v1/users/resetPassword/${resetToken}`;
+  const message = `Forgot your password? Submit a Patch request with your new password and passwordConfirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email.`;
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'Your password reset token (valid for 10min)',
+      message,
+    });
+    res.status(200).json({
+      status: 'success',
+      message: 'Token send to email',
+    });
+  } catch (err) {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      new AppError('There was an error sending the email. Try again later.')
+    );
+  }
+});
+exports.resetPassword = catchAsync(async (req, res, next) => {});
