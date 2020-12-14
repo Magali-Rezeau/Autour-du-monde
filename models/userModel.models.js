@@ -46,7 +46,7 @@ const userSchema = schema({
       },
     },
   },
-  passwordChangeAt: {
+  passwordChangedAt: {
     type: Date,
   },
   passordRestToken: {
@@ -54,6 +54,11 @@ const userSchema = schema({
   },
   passwordResetExpires: {
     type: Date,
+  },
+  active: {
+    type: Boolean,
+    default: true,
+    select: false,
   },
 });
 
@@ -67,6 +72,22 @@ userSchema.pre('save', async function (next) {
 
   next();
 });
+
+userSchema.pre('save', async function (next) {
+  // Only run if password was actually modified
+  if (!this.isModified('password') || this.isNew) return next();
+  // Token is create after changing the password (1000)
+  this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
+userSchema.pre(/^find/, async function (next) {
+  // This points to the current query
+  this.find({ active: { $ne: false } });
+
+  next();
+});
+
 userSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
