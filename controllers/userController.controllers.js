@@ -35,7 +35,7 @@ exports.getUser = catchAsync(async (req, res, next) => {
 exports.createUser = (req, res) => {};
 exports.updateUser = (req, res) => {};
 exports.deleteUser = (req, res) => {};
-exports.updateProfileUser = catchAsync(async (req, res, next) => {
+exports.updateUserProfile = catchAsync(async (req, res, next) => {
   // Create error if user posts password data
   if (req.body.password || req.body.passwordConfirm) {
     return next(
@@ -58,7 +58,7 @@ exports.updateProfileUser = catchAsync(async (req, res, next) => {
     data: updatedUser,
   });
 });
-exports.deleteProfileUser = catchAsync(async (req, res, next) => {
+exports.deleteUserProfile = catchAsync(async (req, res, next) => {
   await User.findByIdAndUpdate(req.user.id, { active: false });
 
   res.status(204).json({

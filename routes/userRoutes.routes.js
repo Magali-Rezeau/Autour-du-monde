@@ -22,15 +22,15 @@ router.patch(
 );
 
 router.patch(
-  '/updateProfileUser',
+  '/updateUserProfile',
   authController.protectRoute,
-  userController.updateProfileUser
+  userController.updateUserProfile
 );
 
 router.delete(
-  '/deleteProfileUser',
+  '/deleteUserProfile',
   authController.protectRoute,
-  userController.deleteProfileUser
+  userController.deleteUserProfile
 );
 
 router.route('/:id').get(userController.getUser);
