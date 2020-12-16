@@ -1,6 +1,7 @@
 const User = require('../models/userModel.models');
 const catchAsync = require('../utils/catchAsync.utils');
 const AppError = require('../utils/AppError.utils');
+const handlerFactory = require('./handlerFactoryController.controllers');
 
 const filterObject = (obj, ...allowedFields) => {
   const newObj = {};
@@ -10,31 +11,15 @@ const filterObject = (obj, ...allowedFields) => {
   return newObj;
 };
 
-exports.getAllUsers = catchAsync(async (req, res, next) => {
-  const users = await User.find();
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      users,
-    },
-  });
-});
-exports.getUser = catchAsync(async (req, res, next) => {
-  const user = await User.findById(req.params.id);
-  if (!user) {
-    return next(new AppError('Not user found with that Id', 404));
-  }
-  res.status(200).json({
-    status: 'success',
-    data: {
-      user,
-    },
-  });
-});
-exports.createUser = (req, res) => {};
-exports.updateUser = (req, res) => {};
-exports.deleteUser = (req, res) => {};
+exports.getAllUsers = handlerFactory.getAll(User);
+exports.getUser = handlerFactory.getOne(User);
+exports.createUser = handlerFactory.createOne(User);
+exports.updateUser = handlerFactory.updateOne(User);
+exports.deleteUser = handlerFactory.deleteOne(User);
+exports.getUserProfile = (req, res, next) => {
+  req.params.id = req.user.id;
+  next();
+};
 exports.updateUserProfile = catchAsync(async (req, res, next) => {
   // Create error if user posts password data
   if (req.body.password || req.body.passwordConfirm) {
